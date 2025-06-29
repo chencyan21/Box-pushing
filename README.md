@@ -1,6 +1,6 @@
 # 跳一跳游戏说明
 
-![游戏主界面](assets\Game.png)
+![游戏主界面](assets/Game.png)
 
 ## 项目架构
 
