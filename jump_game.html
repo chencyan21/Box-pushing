@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>跳一跳游戏</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        h1 {
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .game-area {
+            background: #2c3e50;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        
+        #gameCanvas {
+            border: 2px solid #34495e;
+            border-radius: 8px;
+            background: linear-gradient(to bottom, #87CEEB 0%, #98FB98 100%);
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.1);
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        #powerInput {
+            width: 100px;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 16px;
+            background: rgba(255,255,255,0.9);
+        }
+        
+        #apiKeyInput {
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            background: rgba(255,255,255,0.9);
+        }
+        
+        button {
+            background: linear-gradient(45deg, #FF6B6B, #FF8E53);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            backdrop-filter: blur(10px);
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .status-item {
+            background: rgba(255,255,255,0.05);
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .score {
+            font-size: 24px;
+            font-weight: bold;
+            color: #f1c40f;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .game-over {
+            background: rgba(231, 76, 60, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 跳一跳游戏</h1>
+        
+        <div class="game-area">
+            <canvas id="gameCanvas" width="800" height="400"></canvas>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="powerInput">跳跃力度 (0-100):</label>
+                <input type="number" id="powerInput" min="0" max="100" value="50">
+            </div>
+            <div class="control-group">
+                <label for="apiKeyInput">Gemini API Key:</label>
+                <input type="password" id="apiKeyInput" placeholder="输入您的API Key" style="width: 200px;">
+            </div>
+            <button id="jumpBtn">🚀 跳跃</button>
+            <button id="aiJumpBtn" disabled>🤖 AI自动跳跃</button>
+            <button id="resetBtn">🔄 重置游戏</button>
+        </div>
+        
+        <div class="status">
+            <div class="score">得分: <span id="score">0</span></div>
+            <div class="status-grid">
+                <div class="status-item">
+                    <strong>玩家位置:</strong> <span id="playerPos">(100, 300)</span>
+                </div>
+                <div class="status-item">
+                    <strong>目标平台:</strong> <span id="platformInfo">(200, 300, 300)</span>
+                </div>
+                <div class="status-item">
+                    <strong>横向速度倍率:</strong> <span id="vxMul">0.15</span>
+                </div>
+                <div class="status-item">
+                    <strong>纵向速度倍率:</strong> <span id="vyMul">-0.25</span>
+                </div>
+                <div class="status-item">
+                    <strong>重力加速度:</strong> <span id="gravity">0.5</span>
+                </div>
+                <div class="status-item">
+                    <strong>游戏状态:</strong> <span id="gameStatus">准备跳跃</span>
+                </div>
+                <div class="status-item">
+                    <strong>AI状态:</strong> <span id="aiStatus">未启用</span>
+                </div>
+                <div class="status-item">
+                    <strong>AI推荐力度:</strong> <span id="aiRecommendation">-</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="game-over" id="gameOver">
+            <h2>🎯 游戏结束!</h2>
+            <p>最终得分: <span id="finalScore">0</span></p>
+            <button onclick="resetGame()">再来一局</button>
+        </div>
+    </div>
+
+    <script>
+        // 游戏配置
+        const GRAVITY = 0.75;
+        const VX_MULTIPLIER = 0.10;
+        const VY_MULTIPLIER = -0.25;
+        const PLAYER_SIZE = 20;
+        const PLATFORM_HEIGHT = 20;
+        const PLATFORM_WIDTH = 100;
+
+        // 游戏状态
+        let gameState = {
+            player: { x: 100, y: 300, vx: 0, vy: 0, isJumping: false },
+            platforms: [],
+            currentPlatformIndex: 0,
+            score: 0,
+            gameOver: false
+        };
+
+        // Canvas 设置
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI 元素
+        const powerInput = document.getElementById('powerInput');
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const jumpBtn = document.getElementById('jumpBtn');
+        const aiJumpBtn = document.getElementById('aiJumpBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // AI Agent 配置
+        const PYTHON_API_URL = 'http://localhost:5000/api';
+        let isAiEnabled = false;
+        let apiKeySet = false;
+
+        // 初始化游戏
+        function initGame() {
+            gameState = {
+                player: { x: 100, y: 300, vx: 0, vy: 0, isJumping: false },
+                platforms: [],
+                currentPlatformIndex: 0,
+                score: 0,
+                gameOver: false
+            };
+
+            // 创建初始平台
+            createInitialPlatforms();
+            updateUI();
+            render();
+        }
+
+        // 创建初始平台
+        function createInitialPlatforms() {
+            // 起始平台
+            gameState.platforms.push({
+                x: 50,
+                y: 320,
+                width: PLATFORM_WIDTH,
+                height: PLATFORM_HEIGHT
+            });
+
+            // 目标平台
+            generateNextPlatform();
+        }
+
+        // 生成下一个平台
+        function generateNextPlatform() {
+            const lastPlatform = gameState.platforms[gameState.platforms.length - 1];
+            const minDistance = 80;
+            const maxDistance = 200;
+            const distance = minDistance + Math.random() * (maxDistance - minDistance);
+            
+            const newPlatform = {
+                x: lastPlatform.x + distance,
+                y: 280 + Math.random() * 80, // 随机高度
+                width: PLATFORM_WIDTH,
+                height: PLATFORM_HEIGHT
+            };
+
+            gameState.platforms.push(newPlatform);
+        }
+
+        // AI Agent 函数
+        async function setApiKey() {
+            const apiKey = apiKeyInput.value.trim();
+            if (!apiKey) {
+                alert('请先输入Gemini API Key！');
+                return false;
+            }
+
+            try {
+                document.getElementById('aiStatus').textContent = '设置API Key中...';
+                
+                const response = await fetch(`${PYTHON_API_URL}/set_api_key`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        api_key: apiKey
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`设置失败: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    apiKeySet = true;
+                    document.getElementById('aiStatus').textContent = '就绪';
+                    return true;
+                } else {
+                    throw new Error(data.error || '设置API Key失败');
+                }
+                
+            } catch (error) {
+                console.error('设置API Key失败:', error);
+                document.getElementById('aiStatus').textContent = '错误: ' + error.message;
+                alert('设置API Key失败: ' + error.message);
+                return false;
+            }
+        }
+
+        async function getAiRecommendation() {
+            const player = gameState.player;
+            const targetPlatform = gameState.platforms[gameState.currentPlatformIndex + 1];
+            
+            if (!targetPlatform) return null;
+
+            // 检查后端连接
+            try {
+                await fetch(`${PYTHON_API_URL}/health`);
+            } catch (error) {
+                alert('无法连接到AI服务器，请确保Python后端已启动！\n运行命令: python ai_agent.py');
+                return null;
+            }
+
+            // 如果还没设置API Key，先设置
+            if (!apiKeySet) {
+                const success = await setApiKey();
+                if (!success) return null;
+            }
+
+            try {
+                document.getElementById('aiStatus').textContent = '计算中...';
+                
+                const requestData = {
+                    player_pos: [Math.round(player.x), Math.round(player.y)],
+                    target_platform: [
+                        Math.round(targetPlatform.x), 
+                        Math.round(targetPlatform.y), 
+                        Math.round(targetPlatform.x + targetPlatform.width)
+                    ],
+                    physics_params: [VX_MULTIPLIER, VY_MULTIPLIER, GRAVITY]
+                };
+
+                const response = await fetch(`${PYTHON_API_URL}/get_recommendation`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API请求失败: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    const recommendedPower = data.recommended_power;
+                    const usingAi = data.using_ai;
+                    
+                    document.getElementById('aiStatus').textContent = usingAi ? '就绪 (AI)' : '就绪 (物理计算)';
+                    document.getElementById('aiRecommendation').textContent = recommendedPower;
+                    return recommendedPower;
+                } else {
+                    throw new Error(data.error || 'AI推荐失败');
+                }
+                
+            } catch (error) {
+                console.error('AI推荐失败:', error);
+                document.getElementById('aiStatus').textContent = '错误: ' + error.message;
+                document.getElementById('aiRecommendation').textContent = '-';
+                alert('AI推荐失败: ' + error.message);
+                return null;
+            }
+        }
+
+        // AI自动跳跃
+        async function aiJump() {
+            if (gameState.player.isJumping || gameState.gameOver) return;
+
+            const recommendedPower = await getAiRecommendation();
+            if (recommendedPower !== null) {
+                powerInput.value = recommendedPower;
+                
+                // 延迟一秒让用户看到推荐值，然后自动跳跃
+                setTimeout(() => {
+                    jump();
+                }, 1000);
+            }
+        }
+
+        // 检查API Key状态
+        function checkApiKeyStatus() {
+            const hasApiKey = apiKeyInput.value.trim().length > 0;
+            aiJumpBtn.disabled = !hasApiKey || gameState.player.isJumping || gameState.gameOver;
+            
+            if (hasApiKey && !gameState.gameOver) {
+                if (!apiKeySet) {
+                    document.getElementById('aiStatus').textContent = '需要设置API Key';
+                }
+                isAiEnabled = true;
+            } else if (!hasApiKey) {
+                document.getElementById('aiStatus').textContent = '未启用';
+                document.getElementById('aiRecommendation').textContent = '-';
+                isAiEnabled = false;
+                apiKeySet = false;
+            }
+        }
+        function jump() {
+            if (gameState.player.isJumping || gameState.gameOver) return;
+
+            const power = parseInt(powerInput.value) || 0;
+            if (power < 0 || power > 100) {
+                alert('跳跃力度必须在0-100之间！');
+                return;
+            }
+
+            gameState.player.vx = power * VX_MULTIPLIER;
+            gameState.player.vy = power * VY_MULTIPLIER;
+            gameState.player.isJumping = true;
+
+            jumpBtn.disabled = true;
+            aiJumpBtn.disabled = true;
+            updateUI();
+            animateJump();
+        }
+
+        // 跳跃动画
+        function animateJump() {
+            if (!gameState.player.isJumping) return;
+
+            // 更新位置
+            gameState.player.x += gameState.player.vx;
+            gameState.player.y += gameState.player.vy;
+
+            // 应用重力
+            gameState.player.vy += GRAVITY;
+
+            // 检查碰撞（仅在下落过程中）
+            if (gameState.player.vy > 0) {
+                checkCollision();
+            }
+
+            // 检查是否掉出屏幕
+            if (gameState.player.y > canvas.height + 50) {
+                endGame();
+                return;
+            }
+
+            render();
+            updateUI();
+
+            if (gameState.player.isJumping) {
+                requestAnimationFrame(animateJump);
+            }
+        }
+
+        // 碰撞检测
+        function checkCollision() {
+            const player = gameState.player;
+            const targetPlatform = gameState.platforms[gameState.currentPlatformIndex + 1];
+
+            if (!targetPlatform) return;
+
+            // 矩形碰撞检测
+            const playerLeft = player.x - PLAYER_SIZE / 2;
+            const playerRight = player.x + PLAYER_SIZE / 2;
+            const playerTop = player.y - PLAYER_SIZE / 2;
+            const playerBottom = player.y + PLAYER_SIZE / 2;
+
+            const platformLeft = targetPlatform.x;
+            const platformRight = targetPlatform.x + targetPlatform.width;
+            const platformTop = targetPlatform.y;
+            const platformBottom = targetPlatform.y + targetPlatform.height;
+
+            // 检查矩形重叠
+            if (playerRight >= platformLeft && playerLeft <= platformRight &&
+                playerBottom >= platformTop && playerTop <= platformBottom) {
+                
+                // 精细判定
+                const verticalDistance = Math.abs(playerBottom - platformTop);
+                const horizontalInBounds = player.x >= platformLeft && player.x <= platformRight;
+
+                // 垂直接近判定（距离小于10像素）和水平落点判定
+                if (verticalDistance <= 10 && horizontalInBounds) {
+                    landOnPlatform(targetPlatform);
+                }
+            }
+        }
+
+        // 成功着陆
+        function landOnPlatform(platform) {
+            gameState.player.y = platform.y - PLAYER_SIZE / 2;
+            gameState.player.vx = 0;
+            gameState.player.vy = 0;
+            gameState.player.isJumping = false;
+            gameState.currentPlatformIndex++;
+            gameState.score += 10;
+
+            // 生成新平台
+            generateNextPlatform();
+
+            // 重新启用跳跃按钮
+            jumpBtn.disabled = false;
+            checkApiKeyStatus(); // 检查AI按钮状态
+            updateUI();
+
+            // 移动相机（滚动效果）
+            if (gameState.player.x > canvas.width / 2) {
+                const offset = gameState.player.x - canvas.width / 2;
+                gameState.player.x = canvas.width / 2;
+                gameState.platforms.forEach(p => p.x -= offset);
+            }
+        }
+
+        // 游戏结束
+        function endGame() {
+            gameState.gameOver = true;
+            gameState.player.isJumping = false;
+            jumpBtn.disabled = true;
+            
+            document.getElementById('gameOver').style.display = 'block';
+            document.getElementById('finalScore').textContent = gameState.score;
+            updateUI();
+        }
+
+        // 重置游戏
+        function resetGame() {
+            document.getElementById('gameOver').style.display = 'none';
+            jumpBtn.disabled = false;
+            checkApiKeyStatus(); // 检查AI按钮状态
+            initGame();
+        }
+
+        // 渲染游戏
+        function render() {
+            // 清空画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 绘制平台
+            ctx.fillStyle = '#8B4513';
+            gameState.platforms.forEach((platform, index) => {
+                // 当前平台用不同颜色标识
+                if (index === gameState.currentPlatformIndex + 1) {
+                    ctx.fillStyle = '#FFD700'; // 目标平台用金色
+                } else if (index === gameState.currentPlatformIndex) {
+                    ctx.fillStyle = '#32CD32'; // 当前平台用绿色
+                } else {
+                    ctx.fillStyle = '#8B4513'; // 其他平台用棕色
+                }
+                
+                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+                
+                // 绘制平台边框
+                ctx.strokeStyle = '#654321';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
+            });
+
+            // 绘制玩家
+            ctx.fillStyle = '#FF6B6B';
+            ctx.beginPath();
+            ctx.arc(gameState.player.x, gameState.player.y, PLAYER_SIZE / 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 玩家边框
+            ctx.strokeStyle = '#C0392B';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 绘制轨迹线（如果正在跳跃）
+            if (gameState.player.isJumping) {
+                ctx.strokeStyle = 'rgba(255, 107, 107, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(gameState.player.x - gameState.player.vx * 5, gameState.player.y - gameState.player.vy * 5);
+                ctx.lineTo(gameState.player.x, gameState.player.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
+        // 更新UI
+        function updateUI() {
+            const player = gameState.player;
+            const targetPlatform = gameState.platforms[gameState.currentPlatformIndex + 1];
+
+            document.getElementById('score').textContent = gameState.score;
+            document.getElementById('playerPos').textContent = `(${Math.round(player.x)}, ${Math.round(player.y)})`;
+            
+            if (targetPlatform) {
+                const platformInfo = `(${Math.round(targetPlatform.x)}, ${Math.round(targetPlatform.y)}, ${Math.round(targetPlatform.x + targetPlatform.width)})`;
+                document.getElementById('platformInfo').textContent = platformInfo;
+            }
+
+            document.getElementById('vxMul').textContent = VX_MULTIPLIER;
+            document.getElementById('vyMul').textContent = VY_MULTIPLIER;
+            document.getElementById('gravity').textContent = GRAVITY;
+
+            let status = '准备跳跃';
+            if (gameState.player.isJumping) {
+                status = '跳跃中...';
+            } else if (gameState.gameOver) {
+                status = '游戏结束';
+            }
+            document.getElementById('gameStatus').textContent = status;
+        }
+
+        // 事件监听器
+        jumpBtn.addEventListener('click', jump);
+        aiJumpBtn.addEventListener('click', aiJump);
+        resetBtn.addEventListener('click', resetGame);
+        apiKeyInput.addEventListener('input', checkApiKeyStatus);
+
+        // 键盘控制
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                jump();
+            }
+        });
+
+        // 初始化游戏
+        initGame();
+        checkApiKeyStatus();
+    </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+@echo off
+echo 启动跳一跳游戏...
+echo.
+echo 正在打开游戏文件...
+start "" "jump_game.html"
+echo.
+echo 游戏已在默认浏览器中打开！
+echo 按任意键退出...
+pause >nul
